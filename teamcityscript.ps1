@@ -1,93 +1,46 @@
+$branch = "%teamcity.build.branch%"
 
-$tcUser = "%tcuser%"
-$tcPassword = "%tcpassword%"
-$secpasswd = ConvertTo-SecureString $tcPassword -AsPlainText -Force
-$mycreds = New-Object System.Management.Automation.PSCredential ($tcUser, $secpasswd)
-$Credential = $mycreds  
-$Server = "%teamcity.serverUrl%"
-$buildID = "%teamcity.build.id%"
-$JiraServer = "%jiraserver%"
-
-$Intro = @"
-
-# Link to Jira Story
-[Link to Jira Story $JiraKey]($JiraServer/browse/$JiraKey)
-
-
-## Changes for %system.teamcity.projectName%
-
-
-### On: %teamcity.build.branch%
-
-
-"@
-
-$NoJiraKey = @"
-
-## Changes for %system.teamcity.projectName%
-
-
-### On: %teamcity.build.branch%
-
-
-"@
-
-
-
-
-
-$branch = "%teamcity.build.branch%"   
 if ($branch.contains("master")){
 	$branch = $branch.split("/")[2]
     $JiraKey = $branch
-    $Intro = $NoJiraKey
-}
-elseif ($branch.contains("develop")){
-	$branch = $branch.split("/")[2]
-    $JiraKey = $branch
-    $Intro = $NoJiraKey
 }
 elseif ($branch.contains("feature")){
     write-output "using $branch"
-    $JiraKey = $branch -replace '[a-z]+/([a-z]+-[0-9]+)(-[a-z]+)+-?','$1'
-    if ($JiraKey -eq $branch){
+    $JiraKey = ($branch | Select-String -Pattern '((?<!([A-Z]{1,10})-?)[A-Z]+-\d+)' | % matches).value
+    if ($JiraKey -eq $null){
         $branch = $branch.split("/")[1]
         Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
-        $Intro = $NoJiraKey
     }else{
-         Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
-        $Intro = $NoJiraKey
+    Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
     }
 }
 elseif ($branch.contains("hotfix")){
     write-output "using $branch"
-    $JiraKey = $branch -replace '[a-z]+/([a-z]+-[0-9]+)(-[a-z]+)+-?','$1'
-    if ($JiraKey -eq $branch){
+    $JiraKey = ($branch | Select-String -Pattern '((?<!([A-Z]{1,10})-?)[A-Z]+-\d+)' | % matches).value
+    if ($JiraKey -eq $null){
         $branch = $branch.split("/")[1]
         Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
-        $Intro = $NoJiraKey
     }else{
-        Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
-        $Intro = $NoJiraKey
+    Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
     }
 }
 elseif ($branch.contains("bugfix")){
     write-output "using $branch"
-    $JiraKey = $branch -replace '[a-z]+/([a-z]+-[0-9]+)(-[a-z]+)+-?','$1'
-    if ($JiraKey -eq $branch){
+    $JiraKey = ($branch | Select-String -Pattern '((?<!([A-Z]{1,10})-?)[A-Z]+-\d+)' | % matches).value
+    if ($JiraKey -eq $null){
         $branch = $branch.split("/")[1]
         Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
-        $Intro = $NoJiraKey
     }else{
-        Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
-        $Intro = $NoJiraKey
+    Write-Host "##teamcity[setParameter name='env.JiraKey' value='$JiraKey']"
     }
+}
+elseif ($branch.contains("develop")){
+	$branch = $branch.split("/")[2]
+    $JiraKey = $branch
 }
 else{
     write-output "using $branch"
-    $Intro = $NoJiraKey
 }
-
 
 function Get-TeamCityChangeIds{
 [CmdletBinding()]
@@ -152,14 +105,38 @@ param (
 
 }
 
-$Intro | Out-file changelog.txt
+$tcUser = "%tcuser%"
+$tcPassword = "%tcpassword%"
+$secpasswd = ConvertTo-SecureString $tcPassword -AsPlainText -Force
+$mycreds = New-Object System.Management.Automation.PSCredential ($tcUser, $secpasswd)
+$Credential = $mycreds  
+$Server = "%teamcity.serverUrl%"
+$buildID = "%teamcity.build.id%"
+
+
+$Intro = @"
+
+# Link to Jira Story
+[Link to Jira Story $JiraKey](https://enerbankusa.atlassian.net/browse/$JiraKey)
+
+
+## Changes for %system.teamcity.projectName%
+
+
+### On: %teamcity.build.branch%
+
+
+"@
+
+
+Write-Output $Intro | Out-file "%system.teamcity.build.tempDir%\changelog.txt" 
 
 $Changes = Get-TeamCityChangeIds -credential $Credential -Server $Server -buildId $buildID
 Write-Output "Using $Changes to build Changelog"
 
 Foreach ($changeID in $Changes){
 write-output "Appending $changeID to %system.teamcity.build.tempDir%\changelog.txt "
-Get-TeamCityChanges -credential $Credential -Server $Server -changeId $changeID | out-file -Append "%system.teamcity.build.tempDir%\changelog.txt"
+Get-TeamCityChanges -credential $Credential -Server $Server -changeId $changeID | out-file -Append -filepath "%system.teamcity.build.tempDir%\changelog.txt"
 }
 
 Get-Content "%system.teamcity.build.tempDir%\changelog.txt"
