@@ -117,7 +117,7 @@ $buildID = "%teamcity.build.id%"
 $Intro = @"
 
 # Link to Jira Story
-[Link to Jira Story $JiraKey](https://enerbankusa.atlassian.net/browse/$JiraKey)
+[Link to Jira Story $JiraKey](/browse/$JiraKey)
 
 
 ## Changes for %system.teamcity.projectName%
